@@ -1,5 +1,6 @@
 pub mod client;
 pub mod server_pool;
+pub mod status;
 
 use std::fmt::{Debug, Display};
 
@@ -12,6 +13,7 @@ pub fn w_read<T: Send + Sync + Copy + Debug + Display>(
     client: &Client,
     server_pool: &mut ServerPool<T>,
 ) {
+    println!("[Client] Reading data from server pool");
     match client.read(server_pool) {
         Some(data) => {
             println!("[Client] Read from server pool : `{}`", data)
@@ -27,6 +29,7 @@ pub fn w_write<T: Send + Sync + Copy + Debug + Display>(
     server_pool: &mut ServerPool<T>,
     value: T,
 ) {
+    println!("[Client] Writing data on server pool : `{}`", value);
     match client.write(server_pool, value) {
         Ok(_) => {
             println!(

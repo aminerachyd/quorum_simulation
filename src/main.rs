@@ -15,13 +15,11 @@ fn main() {
 
     loop {
         i += 1;
+
         w_read(&client, &mut server_pool);
-        thread::sleep(Duration::from_secs(3));
+        thread::sleep(Duration::from_secs(1));
 
         w_write(&client, &mut server_pool, i);
-        thread::sleep(Duration::from_secs(3));
-
-        w_read(&client, &mut server_pool);
-        thread::sleep(Duration::from_secs(3));
+        thread::sleep(Duration::from_secs(1));
     }
 }

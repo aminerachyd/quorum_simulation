@@ -6,7 +6,7 @@ use std::{
     },
     thread,
     thread::JoinHandle,
-    time::{self, Duration, Instant},
+    time::{Duration, Instant},
 };
 
 #[derive(Debug)]
@@ -14,8 +14,11 @@ pub struct Server<T> {
     pub id: usize,
     _thread: JoinHandle<()>,
     event: Arc<Mutex<EventType<T>>>,
-    current_data: Arc<Mutex<(Option<T>, Instant)>>,
-    read_channel: (Sender<(Option<T>, Instant)>, Receiver<(Option<T>, Instant)>),
+    pub current_data: Arc<Mutex<(Option<T>, Option<Instant>)>>,
+    read_channel: (
+        Sender<(Option<T>, Option<Instant>)>,
+        Receiver<(Option<T>, Option<Instant>)>,
+    ),
     write_channel: (Sender<Result<(), ()>>, Receiver<Result<(), ()>>),
 }
 #[derive(Debug, Clone)]
@@ -30,12 +33,11 @@ enum EventType<T> {
 // Client > Reads from ServerPool > Reads from Servers
 impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
     pub fn new(id: usize) -> Server<T> {
-        let _thread = thread::spawn(|| {});
         Server {
             id,
-            current_data: Arc::new(Mutex::new((None, time::Instant::now()))),
+            current_data: Arc::new(Mutex::new((None, None))),
             event: Arc::new(Mutex::new(EventType::INIT)),
-            _thread,
+            _thread: thread::spawn(|| {}),
             read_channel: channel(),
             write_channel: channel(),
         }
@@ -57,7 +59,7 @@ impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
                     *event = EventType::IDLE;
                 }
                 EventType::IDLE => {
-                    println!("[{}] Idling", id);
+                    // println!("[{}] Idling", id);
                     thread::sleep(Duration::from_secs(3));
                 }
                 EventType::READ => {
@@ -68,8 +70,15 @@ impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
                 }
                 EventType::WRITE(data, instant) => {
                     let mut current_data = current_data.lock().unwrap();
-                    if instant.ge(&current_data.1) {
-                        *current_data = (Some(data.clone()), instant.clone());
+                    match current_data.1 {
+                        Some(data_instant) => {
+                            if instant.ge(&data_instant) {
+                                *current_data = (Some(data.clone()), Some(instant.clone()));
+                            }
+                        }
+                        None => {
+                            *current_data = (Some(data.clone()), Some(instant.clone()));
+                        }
                     }
                     write_sender.send(Ok(())).unwrap();
 
@@ -80,13 +89,13 @@ impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
         Server { _thread, ..self }
     }
 
-    pub fn read(&mut self) -> Result<(Option<T>, Instant), ()> {
+    pub fn read(&mut self) -> Result<(Option<T>, Option<Instant>), ()> {
         let mut event = (&self.event).lock().unwrap();
         println!("[{}] Reading...", self.id);
         *event = EventType::READ;
+        drop(event);
         let receiver = &self.read_channel.1;
-        // try_recv instead of recv because recv is a blocking call and we're holding a mutex
-        match receiver.try_recv() {
+        match receiver.recv() {
             Ok(data) => Ok(data),
             Err(_) => Err(()),
         }
@@ -96,7 +105,8 @@ impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
         println!("[{}] Writing...", self.id);
         let mut event = self.event.lock().unwrap();
         *event = EventType::WRITE(value.0, value.1);
+        drop(event);
         let receiver = &self.write_channel.1;
-        receiver.try_recv().unwrap_or(Err(()))
+        receiver.recv().unwrap_or(Err(()))
     }
 }

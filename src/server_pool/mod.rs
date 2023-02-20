@@ -11,7 +11,7 @@ use server::Server;
 #[derive(Debug)]
 pub struct ServerPool<T: 'static> {
     majority: usize,
-    servers: Vec<Server<T>>,
+    pub servers: Vec<Server<T>>,
 }
 
 impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
@@ -53,9 +53,8 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
         // Get most recent answer based on timestamps
         answers
             .iter()
-            .skip(1)
-            .fold(&(None, time::Instant::now()), |a, b| {
-                if a.0.is_none() {
+            .fold(&(None, None), |a, b| {
+                if a.0.is_none() && a.1.is_none() || a.1.is_none() {
                     b
                 } else {
                     if b.1.gt(&a.1) {
@@ -94,7 +93,7 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
                 .collect::<Vec<Result<_, _>>>()
                 .len();
 
-            if ok_count >= 3 {
+            if ok_count >= self.majority {
                 return Ok(());
             }
         }
@@ -105,7 +104,7 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
             .collect::<Vec<Result<_, _>>>()
             .len();
 
-        if ok_count >= 3 {
+        if ok_count >= self.majority {
             return Ok(());
         } else {
             Err(())

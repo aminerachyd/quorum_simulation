@@ -1,10 +1,10 @@
-use std::{
-    fmt::{Debug, Display},
-    sync::mpsc::Receiver,
-};
+use std::fmt::{Debug, Display};
+
+use crossbeam_channel::Receiver;
 
 use crate::server_pool::ServerPool;
 
+#[derive(Clone)]
 pub struct Client<T> {
     pub id: u32,
     receiver: Option<(Receiver<Option<T>>, Receiver<Result<(), ()>>)>,

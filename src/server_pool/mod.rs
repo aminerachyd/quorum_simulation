@@ -1,14 +1,10 @@
 mod server;
 
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
-    sync::{
-        mpsc::{sync_channel, Receiver, SyncSender},
-        Arc, Mutex,
-    },
-    thread::{self, JoinHandle},
-    time::{self, Duration},
+    time,
 };
 
 use rand::{seq::SliceRandom, thread_rng};
@@ -16,11 +12,11 @@ use server::Server;
 
 use crate::client::Client;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ServerPool<T: 'static> {
     majority: usize,
     pub servers: Vec<Server<T>>,
-    connections: HashMap<u32, (SyncSender<Option<T>>, SyncSender<Result<(), ()>>)>,
+    connections: HashMap<u32, (Sender<Option<T>>, Sender<Result<(), ()>>)>,
 }
 
 impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
@@ -41,8 +37,8 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
         &mut self,
         client: &Client<T>,
     ) -> (Receiver<Option<T>>, Receiver<Result<(), ()>>) {
-        let new_read_connection = sync_channel(100);
-        let new_write_connection = sync_channel(100);
+        let new_read_connection = unbounded();
+        let new_write_connection = unbounded();
 
         self.connections
             .insert(client.id, (new_read_connection.0, new_write_connection.0));
@@ -128,6 +124,7 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
 
             if ok_count >= self.majority {
                 self.connections.get(&client_id).unwrap().1.send(Ok(()));
+                return;
             }
         }
 

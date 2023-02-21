@@ -1,7 +1,6 @@
 pub mod client;
 pub mod http;
 pub mod server_pool;
-pub mod status;
 
 use std::fmt::{Debug, Display};
 

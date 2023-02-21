@@ -1,21 +1,17 @@
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::{
     fmt::{Debug, Display},
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
     thread,
-    thread::JoinHandle,
     time::{Duration, Instant},
 };
 
 use rand::Rng;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Server<T> {
     pub id: usize,
     failure_probability: f32,
-    _thread: JoinHandle<()>,
     event: Arc<Mutex<EventType<T>>>,
     pub current_data: Arc<Mutex<(Option<T>, Option<Instant>)>>,
     read_channel: (
@@ -41,9 +37,8 @@ impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
             failure_probability,
             current_data: Arc::new(Mutex::new((None, None))),
             event: Arc::new(Mutex::new(EventType::INIT)),
-            _thread: thread::spawn(|| {}),
-            read_channel: channel(),
-            write_channel: channel(),
+            read_channel: unbounded(),
+            write_channel: unbounded(),
         }
     }
 
@@ -97,7 +92,7 @@ impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
                 }
             }
         });
-        Server { _thread, ..self }
+        Server { ..self }
     }
 
     pub fn read(&self) -> Result<(Option<T>, Option<Instant>), ()> {

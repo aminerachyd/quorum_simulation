@@ -8,7 +8,7 @@ use std::{
 
 use rand::Rng;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Server<T> {
     pub id: usize,
     failure_probability: f32,
@@ -65,9 +65,7 @@ impl<T: Sync + Send + Display + Clone + Debug + 'static> Server<T> {
                     println!("[{}] Started server", id);
                     *event = EventType::IDLE;
                 }
-                EventType::IDLE => {
-                    thread::sleep(Duration::from_secs(3));
-                }
+                EventType::IDLE => {}
                 EventType::READ => {
                     let current_data = current_data.lock().unwrap();
                     read_sender.send((*current_data).clone()).unwrap();

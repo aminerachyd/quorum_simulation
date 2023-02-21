@@ -1,18 +1,18 @@
 mod server;
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
+use rand::{seq::SliceRandom, thread_rng};
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
     time,
 };
 
-use rand::{seq::SliceRandom, thread_rng};
 use server::Server;
 
 use crate::client::Client;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ServerPool<T: 'static> {
     majority: usize,
     pub servers: Vec<Server<T>>,
@@ -56,9 +56,13 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
     pub fn read(&self, client_id: u32) {
         let mut answers = Vec::with_capacity(self.majority);
 
-        // self.servers.shuffle(&mut thread_rng());
+        let mut vector_indexes = (0..self.servers.len()).into_iter().collect::<Vec<usize>>();
 
-        for server in &self.servers {
+        vector_indexes.shuffle(&mut thread_rng());
+
+        for index in vector_indexes {
+            let server = self.servers.get(index).unwrap();
+
             match server.read() {
                 Ok(data) => {
                     match data.0 {
@@ -99,11 +103,15 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
     pub fn write(&self, client_id: u32, value: T) {
         let mut answers = Vec::with_capacity(self.majority);
 
-        // self.servers.shuffle(&mut thread_rng());
+        let mut vector_indexes = (0..self.servers.len()).into_iter().collect::<Vec<usize>>();
+
+        vector_indexes.shuffle(&mut thread_rng());
 
         let instant_now = time::Instant::now();
 
-        for server in &self.servers {
+        for index in vector_indexes {
+            let server = self.servers.get(index).unwrap();
+
             match server.write((value, instant_now)) {
                 Ok(_) => {
                     println!("[{}] Written data {}", server.id, value);
@@ -139,5 +147,24 @@ impl<T: Send + Copy + Sync + Debug + Display> ServerPool<T> {
         } else {
             self.connections.get(&client_id).unwrap().1.send(Err(()));
         }
+    }
+
+    pub fn get_state(&self) -> Vec<(usize, Option<T>, Option<String>)> {
+        let mut result = Vec::new();
+        for server in &self.servers {
+            let current_data = *server.current_data.lock().unwrap();
+
+            if current_data.1.is_none() {
+                result.push((server.id, current_data.0, None));
+            } else {
+                result.push((
+                    server.id,
+                    current_data.0,
+                    Some(format!("{:?}", (current_data.1.unwrap()))),
+                ));
+            }
+        }
+
+        result
     }
 }

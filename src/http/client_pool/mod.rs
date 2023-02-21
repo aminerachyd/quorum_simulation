@@ -4,7 +4,6 @@ use rand::Rng;
 
 use crate::{client::Client, server_pool::ServerPool};
 
-#[derive(Clone)]
 pub struct ClientPool<T: 'static> {
     clients: Vec<Client<T>>,
 }

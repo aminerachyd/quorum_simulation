@@ -29,7 +29,7 @@ function App() {
   const ENDPOINT =
     // process.env.REACT_APP_SERVER_ENDPOINT ||
     // config.SERVER_ENDPOINT ||
-    "http://k8s.aminerachyd.me/quorum-system/quorum";
+    "https://k8s.aminerachyd.me/quorum-system/quorum";
 
   const readQuorum = () => {
     setState({ ...state, loadingRead: true });

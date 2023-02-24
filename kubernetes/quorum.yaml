@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quorum
+  labels:
+    app: quorum
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quorum
+  template:
+    metadata:
+      labels:
+        app: quorum
+    spec:
+      containers:
+        - name: quorum
+          image: aminerachyd/quorum-arm:latest
+          imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quorum
+spec:
+  selector:
+    app: quorum
+  ports:
+    - protocol: TCP
+      port: 8080
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: quorum
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+spec:
+  rules:
+    - host: k8s.aminerachyd.me
+      http:
+        paths:
+          - path: /quorum-system(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: quorum
+                port:
+                  number: 8080
